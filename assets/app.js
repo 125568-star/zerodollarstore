@@ -39,10 +39,8 @@ let adminSection=['listings','requests','bans','reports'].includes(adminParams.g
 let adminFilter=['pending','approved','rejected','hidden','all'].includes(adminParams.get('filter'))?adminParams.get('filter'):'pending';
 let pendingApprovalEmailLink=adminParams.get('review')==='pending';
 if(document.body.dataset.page==='admin'){
- const initialTitles={listings:'Listing moderation',requests:'Wanted requests',bans:'Banned accounts',reports:'Member reports'};
- const initialTitle=initialTitles[adminSection]||initialTitles.listings;
- if(q('adminTitle'))q('adminTitle').textContent=initialTitle;
- document.title=initialTitle+' | Zero Dollar Store admin';
+ if(q('adminTitle'))q('adminTitle').textContent='Administrator sign-in required';
+ document.title='Administrator sign-in required | Zero Dollar Store';
 }
  let session=null, categories=[], listings=[], imagesByListing={}, favorites=new Set(), selectedCategory='all', categoryNotFound=false, searchTerm='', searchArea='', toastTimeout;
 function toast(msg){const el=q('toast');clearTimeout(toastTimeout);el.textContent=msg;el.classList.add('show');toastTimeout=setTimeout(()=>el.classList.remove('show'),4500)}
@@ -328,7 +326,18 @@ async function updateHeader(){
  if(check!==identitySerial)return;
  ['postTop','heroPost','pointsPost','wantedPost'].forEach(id=>{const button=q(id);if(button){button.disabled=accountBanned;button.title=accountBanned?'Account banned from posting':'';}});
  drawListings();
- if(q('adminPageContent')){if(adminAccess)await showAdminPanel(adminFilter).catch(onError);else q('adminPageContent').innerHTML='<div class="page-note"><strong>Administrator sign-in required.</strong> Use Log in at the top of the page with an authorised administrator account.</div>';}
+ if(q('adminPageContent')){
+  const nav=q('adminPageNav'),host=q('adminPageContent'),notice=q('adminAccessNotice');
+  if(nav)nav.hidden=!adminAccess;
+  if(host)host.hidden=!adminAccess;
+  if(notice)notice.hidden=adminAccess;
+  if(adminAccess)await showAdminPanel(adminFilter).catch(onError);
+  else{
+   if(q('adminTitle'))q('adminTitle').textContent='Administrator sign-in required';
+   document.title='Administrator sign-in required | Zero Dollar Store';
+   if(q('adminDescription'))q('adminDescription').textContent='This area is only available to authorised administrators. Sign in to continue.';
+  }
+ }
  if(adminAccess)await checkAdminAlerts().catch(console.warn);
  // Deep link from the single daily email: authenticate, then show the protected queue.
  if(pendingApprovalEmailLink){
@@ -395,11 +404,14 @@ function openAdminEmail(){
 async function showAdminPanel(filter=adminFilter){
  const host=q('adminPageContent');
  if(!currentUser()||!adminAccess){
-  if(host)host.innerHTML='<div class="page-note"><strong>Administrator sign-in required.</strong> Use Log in at the top of the page with an authorised administrator account.</div>';
-  else location.href='admin.html?section='+encodeURIComponent(adminSection)+'&filter='+encodeURIComponent(filter);
+  if(host)host.hidden=true;
+  if(q('adminAccessNotice'))q('adminAccessNotice').hidden=false;
+  else if(!host)location.href='admin.html?section='+encodeURIComponent(adminSection)+'&filter='+encodeURIComponent(filter);
   return;
  }
  if(!host){location.href='admin.html?section='+encodeURIComponent(adminSection)+'&filter='+encodeURIComponent(filter);return;}
+ host.hidden=false;
+ if(q('adminAccessNotice'))q('adminAccessNotice').hidden=true;
  adminFilter=['pending','approved','rejected','hidden','all'].includes(filter)?filter:'pending';
  const titles={listings:'Listing moderation',requests:'Wanted requests',bans:'Banned accounts',reports:'Member reports'};
  const pageTitle=titles[adminSection]||titles.listings;
