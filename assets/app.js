@@ -34,7 +34,10 @@ const moneyRe = /(?:\$\s*\d|\b(?:payment|price\s*[:=]|deposit|paypal|bank transf
 const categoryIcons = {'furniture':'🛋️','electronics':'💻','home-appliances':'🏠','garden':'🌿','tools':'🧰','sports':'🚲','books':'📚','clothing':'👕','baby-kids':'🧸','pets':'🐶','building-materials':'🪚','other':'🎁','events':'📅','services-offered':'🛠️'};
 const categoryColors=['#edf2e5','#e8eefe','#fff2e4','#e9f3e5','#fff0e5','#e5f5f7'];
 let adminAccess=false, accountBanned=false, adminSeenNotices=null, adminChecking=false, currentEmailDraft=null, listingView=document.body.dataset.page==='wanted'?'want':'have', identitySerial=0;
-let pendingApprovalEmailLink=(new URLSearchParams(location.search)).get('review')==='pending';
+const adminParams=new URLSearchParams(location.search);
+let adminSection=['listings','requests','bans','reports'].includes(adminParams.get('section'))?adminParams.get('section'):'listings';
+let adminFilter=['pending','approved','rejected','hidden','all'].includes(adminParams.get('filter'))?adminParams.get('filter'):'pending';
+let pendingApprovalEmailLink=adminParams.get('review')==='pending';
  let session=null, categories=[], listings=[], imagesByListing={}, favorites=new Set(), selectedCategory='all', categoryNotFound=false, searchTerm='', searchArea='', toastTimeout;
 function toast(msg){const el=q('toast');clearTimeout(toastTimeout);el.textContent=msg;el.classList.add('show');toastTimeout=setTimeout(()=>el.classList.remove('show'),4500)}
 function openModal(content,large=false){q('modalBody').className='modal'+(large?' large':'');q('modalBody').innerHTML=`<button class="modal-close" aria-label="Close" data-close>×</button>`+content;q('modalOverlay').classList.add('show');document.body.style.overflow='hidden'}
@@ -319,6 +322,7 @@ async function updateHeader(){
  if(check!==identitySerial)return;
  ['postTop','heroPost','pointsPost','wantedPost'].forEach(id=>{const button=q(id);if(button){button.disabled=accountBanned;button.title=accountBanned?'Account banned from posting':'';}});
  drawListings();
+ if(q('adminPageContent')){if(adminAccess)await showAdminPanel(adminFilter).catch(onError);else q('adminPageContent').innerHTML='<div class="page-note"><strong>Administrator sign-in required.</strong> Use Log in at the top of the page with an authorised administrator account.</div>';}
  if(adminAccess)await checkAdminAlerts().catch(console.warn);
  // Deep link from the single daily email: authenticate, then show the protected queue.
  if(pendingApprovalEmailLink){
@@ -382,56 +386,96 @@ function openAdminEmail(){
  window.location.href='mailto:'+encodeURIComponent(d.to)+'?subject='+encodeURIComponent(d.subject)+'&body='+encodeURIComponent(d.body);
 }
 
-async function showAdminPanel(filter='pending'){
- if(!currentUser()||!adminAccess)return toast('Administrator access required.');
- const [{data,error},{data:banned,error:banError}]=await Promise.all([
-  db.rpc('zds_admin_listings',{p_filter:filter}),
-  db.rpc('zds_admin_banned_users')
- ]);
- if(error)throw error;if(banError)throw banError;
- const entries=data||[], bannedUsers=banned||[];
- const ids=entries.map(x=>x.id),pics={},types={};
- if(ids.length){
-  const {data:kinds,error:kindsError}=await db.from('listings').select('id,listing_type').in('id',ids);if(kindsError)throw kindsError;(kinds||[]).forEach(x=>types[x.id]=x.listing_type);
-  const {data:photos,error:photoError}=await db.from('listing_images')
-    .select('listing_id,storage_path,display_order').in('listing_id',ids).order('display_order');
-  if(photoError)throw photoError;
-  (photos||[]).forEach(x=>(pics[x.listing_id]??=[]).push(x));
+async function showAdminPanel(filter=adminFilter){
+ const host=q('adminPageContent');
+ if(!currentUser()||!adminAccess){
+  if(host)host.innerHTML='<div class="page-note"><strong>Administrator sign-in required.</strong> Use Log in at the top of the page with an authorised administrator account.</div>';
+  else location.href='admin.html?section='+encodeURIComponent(adminSection)+'&filter='+encodeURIComponent(filter);
+  return;
  }
- const filters=[['pending','Pending review'],['approved','Approved'],['rejected','Rejected'],['hidden','Deleted / hidden'],['all','All']];
- const nav=filters.map(([value,label])=>`<button class="btn ${filter===value?'':'btn-ghost'}" data-admin-filter="${value}" style="padding:8px 11px;font-size:12px">${label}</button>`).join('');
- const rows=entries.map(x=>{
-  const photos=(pics[x.id]||[]).slice(0,5).map(p=>`<img loading="lazy" style="width:72px;height:64px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb" src="${esc(photoUrl(p))}" alt="Listing photo">`).join('');
-  const banned=bannedUsers.some(u=>u.user_id===x.owner_id);
-  return `<article class="admin-record">
-  <strong>${esc(x.title)}</strong> <span class="muted">· ${types[x.id]==="want"?"🔎 Wanted request":"🎁 Free item"} · ${esc(x.moderation_status)} · ${esc(x.status)}</span>
-  <p class="muted">Posted by ${esc(x.owner_email||x.owner_id)} · ${humanAge(x.created_at)} · ${esc(x.suburb)}, ${esc(x.state)}</p>
-  <div style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0">${photos}</div>
-  <p style="white-space:pre-wrap;font-size:13px">${esc(x.description)}</p>
-  <div class="admin-actions">
-  ${x.moderation_status!=='approved' && x.status!=='removed' && !banned?`<button class="btn" data-moderate="approve" data-target="${x.id}">✓ Approve & publish</button>`:''}
-  ${x.moderation_status==='pending'?`<button class="btn btn-ghost" data-moderate="reject" data-target="${x.id}">Reject with reason</button>`:''}
-  ${x.moderation_status!=='hidden'||x.status!=='removed'?`<button class="btn btn-ghost" data-moderate="delete" data-target="${x.id}">Delete listing</button>`:''}
-  ${!banned?`<button class="btn btn-ghost" data-ban-user="${x.owner_id}" data-ban-state="true" data-ban-email="${esc(x.owner_email||'member')}">Ban account &amp; email</button>`:''}
-  </div>
- </article>`;
- }).join('');
- const bannedList=`<section style="margin-top:22px" aria-label="Banned members report">
-   <h3 style="margin:0 0 7px">Banned members (${bannedUsers.length})</h3>
-   <p class="muted" style="font-size:12px">This private report includes email addresses, dates, ban reasons, and administrators. Only admins can download it.</p>
-   <div class="admin-actions" style="margin:12px 0">
-     <button type="button" class="btn btn-soft" data-export-bans="active">↓ Export active bans (CSV)</button>
-     <button type="button" class="btn btn-ghost" data-export-bans="all">↓ Export full ban history (CSV)</button>
-   </div>
-   <details><summary>Show banned accounts</summary>
-   ${bannedUsers.length?bannedUsers.map(u=>`<div class="admin-record"><span>${esc(u.email)}</span> <button class="btn btn-ghost" data-ban-user="${u.user_id}" data-ban-state="false">Unban email</button></div>`).join(''):'<p class="muted">No banned accounts yet.</p>'}
-   </details></section>`;
- openModal(`<h2>🛡️ Admin moderation</h2><p class="sub">New posts remain hidden until approved. Removing a listing or banning a member requires a reason. Email explanations are prepared but are not automatically sent yet.</p><div class="admin-alert-control"><strong>🔔 New listing alerts</strong><p>Review this inbox any time. When the site is open, it checks for new listings every 30 seconds.</p><button type="button" class="btn btn-soft" data-enable-admin-notifications>Enable browser notifications</button></div>
- <div style="display:flex;gap:6px;flex-wrap:wrap;margin:14px 0">${nav}</div>
- <p class="muted">${entries.length} listing(s) in this view</p>
- ${rows||'<p class="modal-note">No listings in this view.</p>'}
- ${bannedList}
- `,true);
+ if(!host){location.href='admin.html?section='+encodeURIComponent(adminSection)+'&filter='+encodeURIComponent(filter);return;}
+ adminFilter=['pending','approved','rejected','hidden','all'].includes(filter)?filter:'pending';
+ const titles={listings:'Listing moderation',requests:'Wanted requests',bans:'Banned accounts',reports:'Member reports'};
+ const pageTitle=titles[adminSection]||titles.listings;
+ const pageHeading=q('adminTitle');
+ if(pageHeading)pageHeading.textContent=pageTitle;
+ document.title=pageTitle+' | Zero Dollar Store admin';
+ document.querySelectorAll('[data-admin-section]').forEach(link=>{
+  const active=link.dataset.adminSection===adminSection;
+  link.setAttribute('aria-current',active?'page':'false');
+  link.classList.toggle('btn-dark',active);
+  link.classList.toggle('btn-ghost',!active);
+ });
+ const sectionCopy={
+  listings:'Review free item listings and update their moderation status.',
+  requests:'Review member requests for free items and services.',
+  bans:'Review banned accounts and download the private ban history.',
+  reports:'Review reports submitted by members about listings.'
+ };
+ let body='';
+ if(adminSection==='reports'){
+  const {data:reports,error}=await db.from('reports').select('id,listing_id,reporter_id,reason,details,status,created_at').order('created_at',{ascending:false}).limit(200);
+  if(error)throw error;
+  const listingIds=[...new Set((reports||[]).map(r=>r.listing_id).filter(Boolean))];
+  let titlesById={};
+  if(listingIds.length){
+   const {data:listings,error:listingError}=await db.from('listings').select('id,title,status').in('id',listingIds);
+   if(listingError)throw listingError;
+   (listings||[]).forEach(item=>titlesById[item.id]=item);
+  }
+  const cards=(reports||[]).map(report=>{
+   const listing=titlesById[report.listing_id];
+   return '<article class="admin-record"><div class="admin-record-head"><strong>'+esc(report.reason.replaceAll('_',' '))+'</strong><span class="admin-status">'+esc(report.status)+'</span></div>'
+    +'<p class="muted">'+(listing?'Listing: '+esc(listing.title)+' · '+esc(listing.status):'Listing unavailable or removed')+' · Reported '+esc(new Date(report.created_at).toLocaleString('en-AU'))+'</p>'
+    +(report.details?'<p style="white-space:pre-wrap">'+esc(report.details)+'</p>':'<p class="muted">No extra details were provided.</p>')
+    +'</article>';
+  }).join('');
+  body='<p class="muted">'+(reports||[]).length+' report(s), newest first. Reports are visible to administrators only.</p>'
+   +(cards||'<div class="page-note">No member reports have been submitted.</div>');
+ }else if(adminSection==='bans'){
+  const {data:bannedUsers,error}=await db.rpc('zds_admin_banned_users');
+  if(error)throw error;
+  body='<p class="muted">'+(bannedUsers||[]).length+' banned account(s). This private information is only shown to authorised administrators.</p>'
+   +'<div class="admin-actions admin-export-row"><button type="button" class="btn btn-soft" data-export-bans="active">↓ Export active bans (CSV)</button><button type="button" class="btn btn-ghost" data-export-bans="all">↓ Export full ban history (CSV)</button></div>'
+   +'<div class="admin-ban-list">'+((bannedUsers||[]).length?(bannedUsers||[]).map(user=>'<article class="admin-record"><strong>'+esc(user.email)+'</strong><button type="button" class="btn btn-ghost" data-ban-user="'+esc(user.user_id)+'" data-ban-state="false">Unban email</button></article>').join(''):'<div class="page-note">No banned accounts currently.</div>')+'</div>';
+ }else{
+  const {data,error}=await db.rpc('zds_admin_listings',{p_filter:adminFilter});
+  if(error)throw error;
+  const entries=data||[];
+  const ids=entries.map(item=>item.id),pics={},types={};
+  const bannedResult=await db.rpc('zds_admin_banned_users');
+  if(bannedResult.error)throw bannedResult.error;
+  const bannedUsers=bannedResult.data||[];
+  if(ids.length){
+   const {data:kinds,error:kindsError}=await db.from('listings').select('id,listing_type').in('id',ids);
+   if(kindsError)throw kindsError;
+   (kinds||[]).forEach(item=>types[item.id]=item.listing_type);
+   const {data:photos,error:photoError}=await db.from('listing_images').select('listing_id,storage_path,display_order').in('listing_id',ids).order('display_order');
+   if(photoError)throw photoError;
+   (photos||[]).forEach(item=>(pics[item.listing_id]??=[]).push(item));
+  }
+  const requests=adminSection==='requests';
+  const visibleEntries=entries.filter(item=>(types[item.id]==='want')===requests);
+  const filters=[['pending','Pending review'],['approved','Approved'],['rejected','Rejected'],['hidden','Deleted / hidden'],['all','All']];
+  const filterNav=filters.map(([value,label])=>'<a class="btn '+(adminFilter===value?'':'btn-ghost')+'" data-admin-filter="'+value+'" href="admin.html?section='+adminSection+'&amp;filter='+value+'">'+label+'</a>').join('');
+  const rows=visibleEntries.map(item=>{
+   const photos=(pics[item.id]||[]).slice(0,5).map(photo=>'<img loading="lazy" style="width:72px;height:64px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb" src="'+esc(photoUrl(photo))+'" alt="Listing photo">').join('');
+   const banned=bannedUsers.some(user=>user.user_id===item.owner_id);
+   return '<article class="admin-record"><strong>'+esc(item.title)+'</strong> <span class="muted">· '+(requests?'🔎 Wanted request':'🎁 Free item')+' · '+esc(item.moderation_status)+' · '+esc(item.status)+'</span>'
+    +'<p class="muted">Posted by '+esc(item.owner_email||item.owner_id)+' · '+humanAge(item.created_at)+' · '+esc(item.suburb)+', '+esc(item.state)+'</p>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0">'+photos+'</div><p style="white-space:pre-wrap;font-size:13px">'+esc(item.description)+'</p>'
+    +'<div class="admin-actions">'
+    +(item.moderation_status!=='approved'&&item.status!=='removed'&&!banned?'<button class="btn" data-moderate="approve" data-target="'+esc(item.id)+'">✓ Approve &amp; publish</button>':'')
+    +(item.moderation_status==='pending'?'<button class="btn btn-ghost" data-moderate="reject" data-target="'+esc(item.id)+'">Reject with reason</button>':'')
+    +(item.moderation_status!=='hidden'||item.status!=='removed'?'<button class="btn btn-ghost" data-moderate="delete" data-target="'+esc(item.id)+'">Delete listing</button>':'')
+    +(!banned?'<button class="btn btn-ghost" data-ban-user="'+esc(item.owner_id)+'" data-ban-state="true" data-ban-email="'+esc(item.owner_email||'member')+'">Ban account &amp; email</button>':'')
+    +'</div></article>';
+  }).join('');
+  body='<nav class="admin-filter-nav" aria-label="Filter '+(requests?'requests':'listings')+'">'+filterNav+'</nav>'
+   +'<p class="muted">'+visibleEntries.length+' '+(requests?'request(s)':'listing(s)')+' in this view</p>'
+   +(rows||'<div class="page-note">No '+(requests?'requests':'listings')+' in this view.</div>');
+ }
+ host.innerHTML='<section class="admin-page-panel"><div class="admin-panel-heading"><div><p class="kicker">ADMIN WORKSPACE</p><h2>'+pageTitle+'</h2><p>'+sectionCopy[adminSection]+'</p></div><button type="button" class="btn btn-soft" data-enable-admin-notifications>🔔 Enable alerts</button></div>'+body+'</section>';
 }
 
 function encodeCsvValue(input){
@@ -516,8 +560,8 @@ q('itemsGrid')?.addEventListener('click',e=>{
 q('itemsGrid')?.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-item]')){e.preventDefault();showItem(e.target.dataset.item)}});
 q('searchForm')?.addEventListener('submit',e=>{e.preventDefault();searchTerm=safe(q('searchText').value);searchArea=safe(q('searchArea').value);drawListings();q('browse').scrollIntoView({behavior:'smooth'})});
 q('sortBy')?.addEventListener('change',drawListings);q('resetButton')?.addEventListener('click',()=>{selectedCategory='all';searchTerm='';searchArea='';q('searchText').value='';q('searchArea').value='';drawCategories();drawListings();q('browse').scrollIntoView({behavior:'smooth'})});
-q('adminBell')?.addEventListener('click',()=>showAdminPanel().catch(onError));
-q('adminWorkspaceButton')?.addEventListener('click',()=>showAdminPanel().catch(onError));
+q('adminBell')?.addEventListener('click',()=>{location.href='admin.html?section=listings'});
+q('adminWorkspaceButton')?.addEventListener('click',()=>{location.href='admin.html?section=listings'});
 q('wantedPost')?.addEventListener('click',()=>showPost('want'));
 q('wantedBrowse')?.addEventListener('click',()=>{listingView='want';selectedCategory='all';searchTerm='';searchArea='';q('searchText').value='';q('searchArea').value='';drawCategories();drawListings();q('browse').scrollIntoView({behavior:'smooth'});});
 document.querySelectorAll('[data-listing-view]').forEach(button=>button.addEventListener('click',()=>{
@@ -525,6 +569,15 @@ document.querySelectorAll('[data-listing-view]').forEach(button=>button.addEvent
 }));q('postTop')?.addEventListener('click',showPost);q('heroPost')?.addEventListener('click',showPost);q('pointsPost')?.addEventListener('click',showPost);q('loginTop')?.addEventListener('click',()=>currentUser()?showAccount().catch(onError):showAuth());q('footerSignIn')?.addEventListener('click',e=>{e.preventDefault();currentUser()?showAccount().catch(onError):showAuth()});q('mobileMenu')?.addEventListener('click',showNavigation);
 q('advertiseButton')?.addEventListener('click',()=>openModal(`<h2>Advertise with Zero Dollar Store 📣</h2><p class="sub">Zero Dollar Store is operated and funded by Ground Support Crew, a Brisbane-based business. The marketplace is free for everyone to use.</p><p>Our plan is to help cover running costs through clearly labelled website advertising, sponsored placements and optional newsletter sponsorships. Ground Support Crew currently pays the operating costs.</p><p>Advertising enquiries will be enabled before launch.</p>`));
 q('newsletterForm')?.addEventListener('submit',e=>{e.preventDefault();if(!q('newsletterConsent').checked)return toast('Please tick the consent box to subscribe.');if(!currentUser())return showAuth();if(safe(q('newsletterEmail').value).toLowerCase()!==safe(currentUser().email).toLowerCase())return toast('Use the email address associated with your account.');setNewsletter(true).then(()=>{q('newsletterEmail').value='';q('newsletterConsent').checked=false}).catch(onError)});
+q('adminPageContent')?.addEventListener('click',e=>{
+ const mod=e.target.closest('[data-moderate]');if(mod)return adminModerate(mod.dataset.target,mod.dataset.moderate).catch(onError);
+ const ban=e.target.closest('[data-ban-user]');if(ban)return adminSetBan(ban.dataset.banUser,ban.dataset.banState==='true',ban.dataset.banEmail).catch(onError);
+ const exportBans=e.target.closest('[data-export-bans]');if(exportBans)return exportBanReport(exportBans.dataset.exportBans).catch(onError);
+ if(e.target.closest('[data-enable-admin-notifications]')){
+  if(!('Notification' in window))return toast('Notifications are unsupported in this browser.');
+  return Notification.requestPermission().then(p=>toast(p==='granted'?'Notifications enabled while site is open.':'Notification permission was not granted.'));
+ }
+});
 q('modalOverlay')?.addEventListener('click',e=>{if(e.target===q('modalOverlay')||e.target.closest('[data-close]'))return closeModal();
 
  if(e.target.closest('[data-open-email-draft]'))return openAdminEmail();
