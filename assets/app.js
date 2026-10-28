@@ -38,6 +38,12 @@ const adminParams=new URLSearchParams(location.search);
 let adminSection=['listings','requests','bans','reports'].includes(adminParams.get('section'))?adminParams.get('section'):'listings';
 let adminFilter=['pending','approved','rejected','hidden','all'].includes(adminParams.get('filter'))?adminParams.get('filter'):'pending';
 let pendingApprovalEmailLink=adminParams.get('review')==='pending';
+if(document.body.dataset.page==='admin'){
+ const initialTitles={listings:'Listing moderation',requests:'Wanted requests',bans:'Banned accounts',reports:'Member reports'};
+ const initialTitle=initialTitles[adminSection]||initialTitles.listings;
+ if(q('adminTitle'))q('adminTitle').textContent=initialTitle;
+ document.title=initialTitle+' | Zero Dollar Store admin';
+}
  let session=null, categories=[], listings=[], imagesByListing={}, favorites=new Set(), selectedCategory='all', categoryNotFound=false, searchTerm='', searchArea='', toastTimeout;
 function toast(msg){const el=q('toast');clearTimeout(toastTimeout);el.textContent=msg;el.classList.add('show');toastTimeout=setTimeout(()=>el.classList.remove('show'),4500)}
 function openModal(content,large=false){q('modalBody').className='modal'+(large?' large':'');q('modalBody').innerHTML=`<button class="modal-close" aria-label="Close" data-close>×</button>`+content;q('modalOverlay').classList.add('show');document.body.style.overflow='hidden'}
