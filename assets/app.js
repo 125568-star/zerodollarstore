@@ -39,8 +39,8 @@ let adminSection=['listings','requests','bans','reports'].includes(adminParams.g
 let adminFilter=['pending','approved','rejected','hidden','all'].includes(adminParams.get('filter'))?adminParams.get('filter'):'pending';
 let pendingApprovalEmailLink=adminParams.get('review')==='pending';
 if(document.body.dataset.page==='admin'){
- if(q('adminTitle'))q('adminTitle').textContent='Administrator sign-in required';
- document.title='Administrator sign-in required | Zero Dollar Store';
+ if(q('adminTitle'))q('adminTitle').textContent='Sign in required';
+ document.title='Sign in required | Zero Dollar Store';
 }
  let session=null, categories=[], listings=[], imagesByListing={}, favorites=new Set(), selectedCategory='all', categoryNotFound=false, searchTerm='', searchArea='', toastTimeout;
 function toast(msg){const el=q('toast');clearTimeout(toastTimeout);el.textContent=msg;el.classList.add('show');toastTimeout=setTimeout(()=>el.classList.remove('show'),4500)}
@@ -314,9 +314,9 @@ async function updateHeader(){
  if(check!==identitySerial || currentUser()?.id!==user?.id)return;
  adminAccess=verifiedAdmin;accountBanned=verifiedBan;
  const account=q('loginTop');
- account.textContent=!user?'Log in':adminAccess?'🛡️ Admin account':'My account';
- account.classList.toggle('admin-user',adminAccess);
- account.title=user?(adminAccess?'Administrator: ':'Signed in: ')+(user.email||'member'):'Log in';
+ account.textContent=!user?'Log in':'My account';
+ account.classList.remove('admin-user');
+ account.title=user?'Signed in: '+(user.email||'member'):'Log in';
  const bell=q('adminBell');if(bell)bell.hidden=!adminAccess;
  const workspace=q('adminWorkspace');if(workspace)workspace.hidden=!adminAccess;
  if(adminAccess){
@@ -333,9 +333,9 @@ async function updateHeader(){
   if(notice)notice.hidden=adminAccess;
   if(adminAccess)await showAdminPanel(adminFilter).catch(onError);
   else{
-   if(q('adminTitle'))q('adminTitle').textContent='Administrator sign-in required';
-   document.title='Administrator sign-in required | Zero Dollar Store';
-   if(q('adminDescription'))q('adminDescription').textContent='This area is only available to authorised administrators. Sign in to continue.';
+   if(q('adminTitle'))q('adminTitle').textContent='Sign in required';
+   document.title='Sign in required | Zero Dollar Store';
+   if(q('adminDescription'))q('adminDescription').textContent='This page is unavailable for this account.';
   }
  }
  if(adminAccess)await checkAdminAlerts().catch(console.warn);
@@ -578,7 +578,6 @@ document.querySelectorAll('[data-listing-view]').forEach(button=>button.addEvent
  listingView=button.dataset.listingView;selectedCategory='all';searchTerm='';searchArea='';q('searchText').value='';q('searchArea').value='';drawCategories();drawListings();
 }));q('postTop')?.addEventListener('click',showPost);q('heroPost')?.addEventListener('click',showPost);q('pointsPost')?.addEventListener('click',showPost);q('loginTop')?.addEventListener('click',()=>{
  if(!currentUser())return showAuth();
- if(adminAccess){location.href='admin.html?section=listings';return;}
  showAccount().catch(onError);
 });q('footerSignIn')?.addEventListener('click',e=>{e.preventDefault();currentUser()?showAccount().catch(onError):showAuth()});q('mobileMenu')?.addEventListener('click',showNavigation);
 q('advertiseButton')?.addEventListener('click',()=>openModal(`<h2>Advertise with Zero Dollar Store 📣</h2><p class="sub">Zero Dollar Store is operated and funded by Ground Support Crew, a Brisbane-based business. The marketplace is free for everyone to use.</p><p>Our plan is to help cover running costs through clearly labelled website advertising, sponsored placements and optional newsletter sponsorships. Ground Support Crew currently pays the operating costs.</p><p>Advertising enquiries will be enabled before launch.</p>`));
