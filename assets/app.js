@@ -420,19 +420,11 @@ async function showAdminPanel(filter=adminFilter){
  };
  let body='';
  if(adminSection==='reports'){
-  const {data:reports,error}=await db.from('reports').select('id,listing_id,reporter_id,reason,details,status,created_at').order('created_at',{ascending:false}).limit(200);
+  const {data:reports,error}=await db.rpc('zds_admin_reports');
   if(error)throw error;
-  const listingIds=[...new Set((reports||[]).map(r=>r.listing_id).filter(Boolean))];
-  let titlesById={};
-  if(listingIds.length){
-   const {data:listings,error:listingError}=await db.from('listings').select('id,title,status').in('id',listingIds);
-   if(listingError)throw listingError;
-   (listings||[]).forEach(item=>titlesById[item.id]=item);
-  }
   const cards=(reports||[]).map(report=>{
-   const listing=titlesById[report.listing_id];
    return '<article class="admin-record"><div class="admin-record-head"><strong>'+esc(report.reason.replaceAll('_',' '))+'</strong><span class="admin-status">'+esc(report.status)+'</span></div>'
-    +'<p class="muted">'+(listing?'Listing: '+esc(listing.title)+' · '+esc(listing.status):'Listing unavailable or removed')+' · Reported '+esc(new Date(report.created_at).toLocaleString('en-AU'))+'</p>'
+    +'<p class="muted">'+(report.listing_title?'Listing: '+esc(report.listing_title)+' · '+esc(report.listing_status):'Listing unavailable or removed')+' · Reported '+esc(new Date(report.created_at).toLocaleString('en-AU'))+'</p>'
     +(report.details?'<p style="white-space:pre-wrap">'+esc(report.details)+'</p>':'<p class="muted">No extra details were provided.</p>')
     +'</article>';
   }).join('');
