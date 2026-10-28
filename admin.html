@@ -9,6 +9,9 @@
   <meta name="description" content="Administrator review tools for Zero Dollar Store.">
   <title>Admin controls | Zero Dollar Store</title>
   <link rel="stylesheet" href="assets/styles.css">
+  <style>
+    .admin-console{padding-bottom:42px}.admin-page-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:4px 0 19px}.admin-page-nav .btn{min-height:48px}.admin-page-nav [aria-current="page"]{background:var(--deep);color:#fff}.admin-page-panel{border:1px solid var(--line);border-radius:18px;padding:22px;background:#fff;box-shadow:var(--shadow)}.admin-panel-heading{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:18px}.admin-panel-heading h2{margin:0;font-size:25px}.admin-panel-heading p:not(.kicker){margin:4px 0 0;color:var(--muted);font-size:13px}.admin-filter-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:16px 0}.admin-filter-nav .btn{font-size:12px;padding:9px 7px}.admin-record-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.admin-status{background:#eef7ed;border-radius:999px;padding:4px 9px;color:#176a53;font-size:11px;font-weight:750;text-transform:capitalize}.admin-export-row{margin:10px 0 18px}.admin-ban-list{margin-top:12px}@media(max-width:700px){.admin-page-nav{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-filter-nav{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-panel-heading{align-items:flex-start;flex-direction:column}.admin-page-panel{padding:16px}}
+  </style>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261028">
   <link rel="alternate icon" type="image/x-icon" href="/favicon.ico?v=20261028">
 </head>
@@ -22,12 +25,20 @@
     </div>
   </header>
 <main id="top">
-<div class="container page-intro"><p class="kicker">STORE MANAGEMENT</p><h1>Administrator controls</h1><p>Sign in with an authorised administrator account to review pending listings, reports and account bans.</p></div>
-<section class="container page-content"><div class="page-note">Only authorised administrators can access moderation functions. Use the <strong>Log in</strong> button above if you are not signed in.</div></section>
+<div class="container page-intro"><p class="kicker">STORE MANAGEMENT</p><h1 id="adminTitle">Listing moderation</h1><p>Sign in with an authorised administrator account to review pending listings, reports and account bans.</p></div>
+<section class="container admin-console" aria-label="Administrator workspace">
+  <nav class="admin-page-nav" aria-label="Admin pages">
+    <a class="btn btn-ghost" data-admin-section="listings" href="admin.html?section=listings">🛍️ Listings</a>
+    <a class="btn btn-ghost" data-admin-section="requests" href="admin.html?section=requests">🔎 Requests</a>
+    <a class="btn btn-ghost" data-admin-section="bans" href="admin.html?section=bans">🛡️ Bans</a>
+    <a class="btn btn-ghost" data-admin-section="reports" href="admin.html?section=reports">🚩 Reports</a>
+  </nav>
+  <div class="page-note admin-login-note">Only authorised administrators can access moderation functions. Use <strong>Log in</strong> above if you are not signed in.</div>
+  <div id="adminPageContent" aria-live="polite"><div class="page-note">Loading administrator tools…</div></div>
+</section>
 </main>
-  <section class="container admin-workspace" id="adminWorkspace" hidden aria-label="Administrator controls"><h2>🛡️ Administrator controls</h2><p id="adminWorkspaceIdentity"></p><button class="btn" id="adminWorkspaceButton" type="button">Review listings, requests, bans and reports →</button></section>
   <footer class="footer"><div class="container footer-row"><div><a class="brand" href="index.html"><span class="brand-emblem" aria-hidden="true">$0</span><span class="brand-name">ZERO <strong>DOLLAR</strong> STORE</span></a><p>Everything costs $0. The online marketplace where useful things get a second life.</p></div><div class="footer-nav"><a href="browse.html">Browse $0 items</a><a href="wanted.html">Wanted requests</a><a href="how-it-works.html">How it works</a><a href="safety.html">Safety rules</a><a href="points.html">Points</a><a href="about.html">About</a><a href="newsletter.html">Newsletter</a><a href="#" id="footerSignIn">Member sign in</a></div></div><div class="container footer-operator">Operated by <a href="https://GroundSupportCrew.com" target="_blank" rel="noopener noreferrer">GroundSupportCrew.com</a>.</div></footer>
   <div class="overlay" id="modalOverlay" role="dialog" aria-modal="true" aria-label="Dialog"><div class="modal" id="modalBody"></div></div><div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script type="module" src="assets/app.js"></script>
+<script type="module" src="assets/app.js?v=20261028-admin-pages"></script>
 </body>
 </html>
