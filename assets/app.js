@@ -358,7 +358,7 @@ async function updateHeader(){
    }
  }
 }
-function showNavigation(){openModal(`<h2>Explore Zero Dollar Store</h2><p><a href="index.html">🏠 Home</a></p><p><a href="browse.html">🎁 Browse free items</a></p><p><a href="wanted.html">🔎 I Need This — requests</a></p><p><a href="how-it-works.html">📦 How it works</a></p><p><a href="points.html">⭐ Zero Dollar Points</a></p><p><a href="safety.html">🛡️ Safety</a></p><p><a href="about.html">💚 About and funding</a></p><p><a href="newsletter.html">✉️ Newsletter</a></p>${adminAccess?'<button class="btn full" data-action="adminPanel">🛡️ Administrator moderation</button>':''}<button class="btn full" data-action="account">My account / Log in</button>`)}
+function showNavigation(){openModal(`<h2>Explore Zero Dollar Store</h2><p><a href="index.html">🏠 Home</a></p><p><a href="browse.html">🎁 Browse free items</a></p><p><a href="wanted.html">🔎 I Need This — requests</a></p><p><a href="how-it-works.html">📦 How it works</a></p><p><a href="points.html">⭐ Zero Dollar Points</a></p><p><a href="safety.html">🛡️ Safety</a></p><p><a href="about.html">💚 About and funding</a></p><p><a href="newsletter.html">✉️ Newsletter</a></p>${adminAccess?'<a class="btn full" href="admin.html?section=listings">🛡️ Administrator moderation</a>':''}<button class="btn full" data-action="account">My account / Log in</button>`)}
 
 
 async function checkAdminAlerts(){
