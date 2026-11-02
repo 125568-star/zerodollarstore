@@ -623,5 +623,6 @@ db.auth.onAuthStateChange((event,s)=>{session=s;setTimeout(()=>updateHeader().ca
  if(error)toast('Sign-in session could not be restored: '+error.message);
  session=data?.session||null;
  await refresh();await updateHeader();
+ if(params.get('view')==='my-listings'){if(currentUser())await showMyListings();else showAuth();}
  if(oauthError){showAuth();authFeedback('The email sign-in link could not be used: '+oauthError.replace(/\+/g,' ')+'. If it is expired, enter your email and select Resend confirmation email.',true);}
 })().catch(onError);
